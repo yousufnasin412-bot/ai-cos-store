@@ -118,7 +118,7 @@ def negotiate_price(req: NegotiateRequest):
     
     # Live Gemini AI Response
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    model = genai.GenerativeModel('gemini-1.5-flash')
     
     prompt = f"""
     You are a friendly E-commerce AI Sales Negotiator for product '{req.product_name}'.
