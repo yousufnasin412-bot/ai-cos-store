@@ -99,49 +99,57 @@ def add_product(prod: ProductRequest):
 @app.post("/api/negotiate")
 def negotiate_price(req: NegotiateRequest):
     api_key = os.getenv("GEMINI_API_KEY")
-    
-    # Fallback Rule Engine if API Key is not configured yet
+
+    # Fallback Rule Engine if API Key is missing
     if not api_key:
         if req.user_offer < req.min_price:
             counter = round((req.original_price + req.min_price) / 2, 2)
             return {
-                "ai_response": f"Sorry, ${req.user_offer} is too low for {req.product_name}. How about we meet at ${counter}?",
+                "ai_response": f"Sorry, ${req.user_offer} is too low. How about ${counter}?",
                 "deal_ok": False,
                 "deal_price": counter
             }
         else:
             return {
-                "ai_response": f"Great offer! I can give you {req.product_name} for ${req.user_offer}!",
+                "ai_response": f"Great offer! I can give you for ${req.user_offer}.",
                 "deal_ok": True,
                 "deal_price": req.user_offer
             }
-    
-    # Live Gemini AI Response
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    
-    prompt = f"""
-    You are a friendly E-commerce AI Sales Negotiator for product '{req.product_name}'.
-    Original Price: ${req.original_price}
-    Minimum Allowed Floor Price: ${req.min_price}
-    Customer Offer: ${req.user_offer}
 
-    Instructions:
-    1. If customer offer is equal or above minimum floor price (${req.min_price}), ACCEPT the deal politely.
-    2. If customer offer is below minimum floor price (${req.min_price}), REJECT politely and offer a counter-price above ${req.min_price}.
-    3. Keep response concise (under 25 words).
-    """
-    
-    response = model.generate_content(prompt)
-    deal_ok = req.user_offer >= req.min_price
-    deal_price = req.user_offer if deal_ok else round((req.original_price + req.min_price) / 2, 2)
-    
-    return {
-        "ai_response": response.text,
-        "deal_ok": True,
-        "deal_price": deal_price
-    }
+    # Live Gemini AI Response with Error Catching
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
 
+        prompt = f"""
+        You are a friendly E-commerce AI Sales Negotiator for product '{req.product_name}'
+        Original Price: ${req.original_price}
+        Minimum Allowed Floor Price: ${req.min_price}
+        Customer Offer: ${req.user_offer}
+
+        Instructions:
+        1. If customer offer is equal or above minimum floor price (${req.min_price}), accept and give a cheerful response.
+        2. If customer offer is below minimum floor price (${req.min_price}), reject politely and offer a price closer to floor price.
+        3. Keep response concise (under 25 words).
+        """
+
+        response = model.generate_content(prompt)
+        deal_ok = req.user_offer >= req.min_price
+        deal_price = req.user_offer if deal_ok else round((req.original_price + req.min_price) / 2, 2)
+
+        return {
+            "ai_response": response.text,
+            "deal_ok": deal_ok,
+            "deal_price": deal_price
+        }
+
+    except Exception as e:
+        # If API fails, return the error message directly to the chat
+        return {
+            "ai_response": f"API Error: {str(e)}",
+            "deal_ok": False,
+            "deal_price": req.original_price
+        }
 @app.post("/api/buy")
 def place_order(order: OrderRequest):
     try:
