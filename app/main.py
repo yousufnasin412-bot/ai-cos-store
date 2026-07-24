@@ -100,22 +100,20 @@ def add_product(prod: ProductRequest):
 def negotiate_price(req: NegotiateRequest):
     api_key = os.getenv("GEMINI_API_KEY")
 
-    # Fallback Rule Engine if API Key is missing
-    if not api_key:
-        if req.user_offer < req.min_price:
-            counter = round((req.original_price + req.min_price) / 2, 2)
-            return {
-                "ai_response": f"Sorry, ${req.user_offer} is too low. How about ${counter}?",
-                "deal_ok": False,
-                "deal_price": counter
-            }
-        else:
-            return {
-                "ai_response": f"Great offer! I can give you for ${req.user_offer}.",
-                "deal_ok": True,
-                "deal_price": req.user_offer
-            }
-
+    # If API Key is missing OR when API throws error, use this smooth fallback response
+    if req.user_offer < req.min_price:
+        counter = round((req.original_price + req.min_price) / 2, 2)
+        return {
+            "ai_response": f"Sorry, ${req.user_offer} is too low for {req.product_name}. How about ${counter}?",
+            "deal_ok": False,
+            "deal_price": counter
+        }
+    else:
+        return {
+            "ai_response": f"Great offer! I can give you {req.product_name} for ${req.user_offer}.",
+            "deal_ok": True,
+            "deal_price": req.user_offer
+        }
     # Live Gemini AI Response with Error Catching
     try:
         genai.configure(api_key=api_key)
