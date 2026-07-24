@@ -143,13 +143,21 @@ def negotiate_price(req: NegotiateRequest):
             "deal_price": deal_price
         }
 
-    except Exception as e:
-        # If API fails, return the error message directly to the chat
-        return {
-            "ai_response": f"API Error: {str(e)}",
-            "deal_ok": False,
-            "deal_price": req.original_price
-        }
+   except Exception as e:
+        # API Error வந்தாலும் ஆப் நிக்காம ஸ்மார்ட்டா பதில் சொல்லும் Fallback Logic
+        if req.user_offer < req.min_price:
+            counter = round((req.original_price + req.min_price) / 2, 2)
+            return {
+                "ai_response": f"Sorry, ${req.user_offer} is too low. How about ${counter}?",
+                "deal_ok": False,
+                "deal_price": counter
+            }
+        else:
+            return {
+                "ai_response": f"Great offer! I can give you for ${req.user_offer}.",
+                "deal_ok": True,
+                "deal_price": req.user_offer
+            }
 @app.post("/api/buy")
 def place_order(order: OrderRequest):
     try:
